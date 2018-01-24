@@ -37,6 +37,46 @@ namespace Formulas
         /// </summary>
         public Formula(String formula)
         {
+            int count;
+            int[] tokenTyp = new int[5];
+            int lasToken;
+            int preToken;
+            foreach (String token in GetTokens(Formula))
+                {
+                    if (isvarPattern)
+                    {
+                        int digit;
+                        bool isDigit = double.TryParse (token, out digit);
+                        
+                        if (! isDigit)
+                        {
+                          
+                        }
+
+                    }
+
+                    else if (isopPattern)
+                    {
+                        
+                    }
+
+                    else if (islpPattern)
+                    {
+
+                    }
+
+                    else if (isrpPattern)
+                    {
+                    }
+
+                    else
+                    {
+                    }
+                
+
+                }
+
+
         }
         /// <summary>
         /// Evaluates this Formula, using the Lookup delegate to determine the values of variables.  (The
@@ -150,4 +190,18 @@ namespace Formulas
         {
         }
     }
+
+    private bool isvarPattern (String token) => Regex.IsMatch(token, @"[a-zA-Z][0-9a-zA-Z]*");
+    private bool islpPattern (String token) => Regex.IsMatch(token, @"\(");
+    private bool isrpPattern (String token) => Regex.IsMatch(token, @"\)");
+    private bool isopPattern (String token) => Regex.IsMatch(token, @"[\+\-*/]");
+
+    private bool isLegal (int count, int last, int pre, int[] tokens)
+        {
+            if (count == 1)
+            {
+                if (last == 3 || last == 5)
+                {throw new FormulaFormatException(message: "The first token of a formula must be a number, a variable, or an opening parenthesis");}
+            }
+        }
 }
