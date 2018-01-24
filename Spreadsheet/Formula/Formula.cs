@@ -37,9 +37,10 @@ namespace Formulas
         /// </summary>
         public Formula(String formula)
         {
+
             int count;
             int[] tokenTyp = new int[5];
-            int lasToken;
+            int lastToken;
             int preToken;
             foreach (String token in GetTokens(Formula))
                 {
@@ -50,31 +51,53 @@ namespace Formulas
                         
                         if (! isDigit)
                         {
-                          
+                            count++;
+                            preToken = lastToken;
+                            lastToken = 2;
+                            isLegal(count, lastToken, preToken, tokenType, false);
+                        }
+
+                        else
+                        {
+                            count++;
+                            preToken = lastToken;
+                            lastToken = 1;
+                            isLegal(count, lastToken, preToken, tokenType, false);
                         }
 
                     }
 
                     else if (isopPattern)
                     {
-                        
+                        count++;
+                        preToken = lastToken;
+                        lastToken = 3;
+                        isLegal(count, lastToken, preToken, tokenType, false);                        
                     }
 
                     else if (islpPattern)
                     {
-
+                        count++;
+                        preToken = lastToken;
+                        lastToken = 4;
+                        isLegal(count, lastToken, preToken, tokenType, false); 
                     }
 
                     else if (isrpPattern)
                     {
+                        count++;
+                        preToken = lastToken;
+                        lastToken = 5;
+                        isLegal(count, lastToken, preToken, tokenType, false); 
                     }
 
                     else
                     {
-                    }
-                
+                        throw new FormulaFormatException (message: "The symbol is undefined");
+                    }                
 
                 }
+            isLegal(count, lastToken, preToken, tokenType, true); 
 
 
         }
@@ -196,12 +219,36 @@ namespace Formulas
     private bool isrpPattern (String token) => Regex.IsMatch(token, @"\)");
     private bool isopPattern (String token) => Regex.IsMatch(token, @"[\+\-*/]");
 
-    private bool isLegal (int count, int last, int pre, int[] tokens)
+    private void isLegal (int count, int last, int pre, int[] tokens, bool over)
         {
             if (count == 1)
             {
                 if (last == 3 || last == 5)
-                {throw new FormulaFormatException(message: "The first token of a formula must be a number, a variable, or an opening parenthesis");}
+                    {throw new FormulaFormatException(message: "The first token of a formula must be a number, a variable, or an opening parenthesis");}
             }
+
+            if (tokens[4] <= tokens[5])
+                {throw new FormulaFormatException(message: "closing parentheses seen so far be greater than the number of opening parentheses seen so far");}
+
+            if (over)
+            {
+                if (last == 3 || last == 4)
+                    {throw new FormulaFormatException(message: "No avaliable variables");}
+            }
+
+            if (last == 3 || last == 4)
+            {
+                if (!(pre == 1 || pre == 2 || pre == 4))
+                    {throw new FormulaFormatException(message: "operator or  parenthesis is illegal");}
+            }
+
+            if (last == 1 || last == 2 || last == 5)
+            {
+                if (!(pre == 3 || pre == 5))
+                    {throw new FormulaFormatException(message: "operator or  parenthesis is illegal");}
+            }
+
+
+
         }
 }
