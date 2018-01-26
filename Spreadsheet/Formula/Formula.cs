@@ -1,4 +1,5 @@
 ﻿// Skeleton written by Joe Zachary for CS 3500, January 2017
+// The rest written by Yuntong Lu (u1060544), January 25 2017
 
 using System;
 using System.Collections.Generic;
@@ -16,7 +17,7 @@ namespace Formulas
     public class Formula
     {
 
-        private String formula;
+        private String _formula;
         /// <summary>
         /// Creates a Formula from a string that consists of a standard infix expression composed
         /// from non-negative floating-point numbers (using C#-like syntax for double/int literals), 
@@ -39,14 +40,20 @@ namespace Formulas
         /// </summary>
         public Formula(String formula)
         {
-
+            // some references track the format
             int count = 0;
+            // [0]: letter, [1]: double, [2]: operator, [3]: (, [4]: )
             int[] tokenTyp = new int[5];
             int lastToken = 0;
             int preToken = 0;
 
+            // working throw each tokens, determain the token type
             foreach (String token in GetTokens(formula))
                 {
+
+                // if the token is variables,
+                // determain if it is the double
+                // update the references values
                     if (isvarPattern (token))
                     {
                         double digit;
@@ -56,7 +63,8 @@ namespace Formulas
                         {
                             count++;
                             preToken = lastToken;
-                            lastToken = 2;
+                            lastToken = 1;
+                            tokenTyp[0]++;
                             isLegal(count, lastToken, preToken, tokenTyp, false);
                         }
 
@@ -64,25 +72,30 @@ namespace Formulas
                         {
                             count++;
                             preToken = lastToken;
-                            lastToken = 1;
+                            lastToken = 2;
+                            tokenTyp[1]++;
                             isLegal(count, lastToken, preToken, tokenTyp, false);
                         }
 
                     }
-
+                // for all the rest of the if
+                // once determained the token type
+                // update the reference and check if the fomula is legal
                     else if (isopPattern (token))
                     {
                         count++;
                         preToken = lastToken;
                         lastToken = 3;
+                        tokenTyp[2]++;
                         isLegal(count, lastToken, preToken, tokenTyp, false);                        
                     }
-
+                
                     else if (islpPattern (token))
                     {
                         count++;
                         preToken = lastToken;
                         lastToken = 4;
+                        tokenTyp[3]++;
                         isLegal(count, lastToken, preToken, tokenTyp, false); 
                     }
 
@@ -91,18 +104,21 @@ namespace Formulas
                         count++;
                         preToken = lastToken;
                         lastToken = 5;
+                        tokenTyp[4]++;
                         isLegal(count, lastToken, preToken, tokenTyp, false); 
                     }
-
+                // if the token is none type, throw exception
                     else
                     {
-                        throw new FormulaFormatException (message: "The symbol is undefined");
+                        throw new FormulaFormatException (message: token + "The symboal is undefinded");
                     }                
-
                 }
+
+            // check if the formula is legal after all the individual tokens are legal 
             isLegal(count, lastToken, preToken, tokenTyp, true);
 
-            this.formula = formula;
+            // get the formula
+            _formula = formula;
         }
         /// <summary>
         /// Evaluates this Formula, using the Lookup delegate to determine the values of variables.  (The
@@ -115,173 +131,172 @@ namespace Formulas
         /// </summary>
         public double Evaluate(Lookup lookup)
         {
+            // use two stacks to treck the variables and operators
             Stack<string> operators = new Stack<string>();
-            Stack<string> values = new Stack<string>();
+            Stack<double> values = new Stack<double>();
             double result = 0;
 
-            foreach (String token in GetTokens(formula))
+            // go through each token and determain the token type
+            foreach (String token in GetTokens(_formula))
             {
-                double digit;
-                bool isDigit = double.TryParse(token, out digit);
-                if (isDigit)
+                // if the token is variable, check if the token is double
+                // if it is the double, avoid to use loopup delegate
+                // if it is the letter, use delegate to convert the letter to double
+                if (isvarPattern(token))
                 {
-                    String oper = operators.Pop();
-                    if (Regex.IsMatch(oper, @"\*"))
+                    // in those statements, once the divide operator is applied
+                    // check the denomuroter, make sure it isn't zero
+                    double digit;
+                    bool isDigit = double.TryParse(token, out digit);
+                    if (isDigit)
                     {
-                        String topValue = values.Pop();
-                        double topNumber;
-                        if (double.TryParse(topValue, result: out topNumber))
+                        // alway check the operators before the next step
+                        if (operators.Count > 0)
                         {
-                            result = digit * topNumber;
-                            values.Push(result.ToString());
+
+                            String oper = operators.Pop();
+                            if (Regex.IsMatch(oper, @"\*"))
+                            {
+
+                                double topNumber = values.Pop();
+
+                                result = digit * topNumber;
+                                values.Push(result);
+
+                            }
+
+                            else if (Regex.IsMatch(oper, @"\/"))
+                            {
+
+                                double topNumber = values.Pop();
+
+                                if (digit <= 1e-8)
+                                {
+                                    throw new FormulaEvaluationException(message: "don't divide zero!");
+                                }
+                                result = (topNumber / digit);
+                                values.Push(result);
+              
+                            }
+                            else
+                            {
+                                operators.Push(oper);
+                                values.Push(digit);
+                            }
                         }
+                        // just push the value
                         else
                         {
-                            result = (digit * lookup(topValue));
-                            values.Push(result.ToString());
+                            values.Push(digit);
                         }
                     }
 
-                    else if (Regex.IsMatch(oper, @"\/"))
+                    if (!isDigit)
                     {
-                        String topValue = values.Pop();
-                        double topNumber;
-                        if (double.TryParse(topValue, result: out topNumber))
+                        if (operators.Count > 0)
                         {
-                            result = (topNumber / digit);
-                            values.Push(result.ToString());
+                            String oper = operators.Pop();
+                            if (Regex.IsMatch(oper, @"\*"))
+                            {
+                                try
+                                {
+                                    double myNumber = lookup(token);
+                                }
+                                catch
+                                {
+                                    throw new FormulaEvaluationException(message: "The lettler value is undefined");
+                                }
+                                result = (lookup(token) * values.Pop());
+                                values.Push(result);     
+                            }
+                            else if (Regex.IsMatch(oper, @"\/"))
+                            {
+                                try
+                                {
+                                    double myNumber = lookup(token);
+                                }
+                                catch
+                                {
+                                    throw new FormulaEvaluationException(message: "The lettler value is undefined");
+                                }
+
+                                if (lookup(token) <= 1e-8)
+                                {
+                                 
+                                    throw new FormulaEvaluationException(message: "don't divide zero!");
+                                }
+
+                                result = (values.Pop() / lookup(token));
+                                values.Push(result);
+                            }
+                            else
+                            {
+                                try
+                                {
+                                    double myNumber = lookup(token);
+                                }
+                                catch
+                                {
+                                    throw new FormulaEvaluationException(message: "The lettler value is undefined");
+                                }
+                                operators.Push(oper);
+                                values.Push(lookup(token));
+                            }
                         }
+
                         else
                         {
-                            result = (lookup(topValue) / digit);
-                            values.Push(result.ToString());
+                            try
+                            {
+                                double myNumber = lookup(token);
+                            }
+                            catch
+                            {
+                                throw new FormulaEvaluationException(message: "The lettler value is undefined");
+                            }
+                            values.Push(lookup(token));
                         }
                     }
-                    else
-                    {
-                        operators.Push(oper);
-                        values.Push(token);
-                    }
-
                 }
 
-                if (!isDigit)
-                {
-                    String oper = operators.Pop();
-                    if (Regex.IsMatch(oper, @"\*"))
-                    {
-                        String topValue = values.Pop();
-                        double topnumber;
-                        if (double.TryParse(topValue, result: out topnumber))
-                        {
-                            result = (lookup(token) * topnumber);
-                            values.Push(result.ToString());
-                        }
-                        else
-                        {
-                            result = (lookup(token) * lookup(topValue));
-                            values.Push(result.ToString());
-                        }
-                    }
-                    else if (Regex.IsMatch(oper, @"\/"))
-                    {
-                        String topValue = values.Pop();
-                        double topNumber;
-                        if (double.TryParse(topValue, result: out topNumber))
-                        {
-                            result = (topNumber / lookup(token));
-                            values.Push(result.ToString());
-                        }
-                        else
-                        {
-                            result = (lookup(topValue) / lookup(token));
-                            values.Push(result.ToString());
-                        }
-                    }
-                    else
-                    {
-                        operators.Push(oper);
-                        values.Push(token);
-                    }
-                }
-
+                // for + and - operator pattern, check the top of the operator stack
+                // then apply them. for the / and * operator, just push them
                 else if (isopPattern(token))
                 {
                     if (Regex.IsMatch(token, @"\+") || Regex.IsMatch(token, @"\-"))
                     {
-                        if (Regex.IsMatch(operators.Peek(), @"\+"))
+                        if (values.Count > 1 && operators.Count == 0)
                         {
-                            String firstValue = values.Pop();
-                            String secondValue = values.Pop();
-                            double firstNumber;
-                            double secondNumber;
-                            if (double.TryParse(firstValue, result: out firstNumber))
-                            {
-                                if (double.TryParse(secondValue, result: out secondNumber))
-                                {
-                                    result = firstNumber + secondNumber;
-                                    values.Push(result.ToString());
-                                }
+                            throw new FormulaEvaluationException(message: "operator stack is empty");
+                        }
+                        if (values.Count > 1 && Regex.IsMatch(operators.Peek(), @"\+"))
+                        {
 
-                                else
-                                {
-                                    result = firstNumber + lookup(secondValue);
-                                    values.Push(result.ToString());
-                                }
-                            }
-                            else
-                            {
-                                if (double.TryParse(secondValue, result: out secondNumber))
-                                {
-                                    result = lookup(firstValue) + secondNumber;
-                                    values.Push(result.ToString());
-                                }
+                            double firstNumber = values.Pop();
+                            double secondNumber = values.Pop();
+                            result = firstNumber + secondNumber;
+                            operators.Pop();
+                            values.Push(result);
+                            operators.Push(token);
+                        }
 
-                                else
-                                {
-                                    result = lookup(firstValue) + lookup(secondValue);
-                                    values.Push(result.ToString());
-                                }
-                            }
+                        else if (values.Count > 1 && Regex.IsMatch(operators.Peek(), @"\-"))
+                        {
+
+                            double firstNumber = values.Pop();
+                            double secondNumber = values.Pop();
+
+                            result = secondNumber - firstNumber;
+                            operators.Pop();
+                            values.Push(result);
+                            operators.Push(token);
+
                         }
 
                         else
                         {
-                            String firstValue = values.Pop();
-                            String secondValue = values.Pop();
-                            double firstNumber;
-                            double secondNumber;
-                            if (double.TryParse(firstValue, result: out firstNumber))
-                            {
-                                if (double.TryParse(secondValue, result: out secondNumber))
-                                {
-                                    result = secondNumber - firstNumber;
-                                    values.Push(result.ToString());
-                                }
-
-                                else
-                                {
-                                    result = lookup(secondValue) - firstNumber;
-                                    values.Push(result.ToString());
-                                }
-                            }
-                            else
-                            {
-                                if (double.TryParse(secondValue, result: out secondNumber))
-                                {
-                                    result = lookup(secondValue) - firstNumber;
-                                    values.Push(result.ToString());
-                                }
-
-                                else
-                                {
-                                    result = lookup(secondValue) + lookup(firstValue);
-                                    values.Push(result.ToString());
-                                }
-                            }
+                            operators.Push(token);
                         }
-
-                        operators.Push(token);
                     }
 
                     else
@@ -290,273 +305,134 @@ namespace Formulas
                     }
                 }
 
+                // push the left (
                 else if (islpPattern(token))
                 {
                     operators.Push(token);
                 }
 
+                // for the ), check the operator, once the operator is = or -, apply them
+                // then, pop out the extra (, then apply the rest operators
                 else if (isrpPattern(token))
                 {
-                    if (Regex.IsMatch(token, @"\+"))
+                    // use the peek(), this can prevent the pop without attentions
+                    if (Regex.IsMatch(operators.Peek(), @"\+"))
                     {
-                        String firstValue = values.Pop();
-                        String secondValue = values.Pop();
-                        double firstNumber;
-                        double secondNumber;
-                        if (double.TryParse(firstValue, result: out firstNumber))
-                        {
-                            if (double.TryParse(secondValue, result: out secondNumber))
-                            {
-                                result = firstNumber + secondNumber;
-                                values.Push(result.ToString());
-                            }
+                        double firstNumber = values.Pop();
+                        double secondNumber = values.Pop();
 
-                            else
-                            {
-                                result = firstNumber + lookup(secondValue);
-                                values.Push(result.ToString());
-                            }
-                        }
-                        else
-                        {
-                            if (double.TryParse(secondValue, result: out secondNumber))
-                            {
-                                result = lookup(firstValue) + secondNumber;
-                                values.Push(result.ToString());
-                            }
-
-                            else
-                            {
-                                result = lookup(firstValue) + lookup(secondValue);
-                                values.Push(result.ToString());
-                            }
-                        }
+                        result = firstNumber + secondNumber;
+                        values.Push(result);
+                        operators.Pop();
                     }
 
-                    else if (Regex.IsMatch(token, @"\-"))
+                    else if (Regex.IsMatch(operators.Peek(), @"\-"))
                     {
-                        String firstValue = values.Pop();
-                        String secondValue = values.Pop();
-                        double firstNumber;
-                        double secondNumber;
-                        if (double.TryParse(firstValue, result: out firstNumber))
-                        {
-                            if (double.TryParse(secondValue, result: out secondNumber))
-                            {
-                                result = secondNumber - firstNumber;
-                                values.Push(result.ToString());
-                            }
+                        double firstNumber = values.Pop();
+                        double secondNumber = values.Pop();
 
-                            else
-                            {
-                                result = lookup(secondValue) - firstNumber;
-                                values.Push(result.ToString());
-                            }
-                        }
-                        else
-                        {
-                            if (double.TryParse(secondValue, result: out secondNumber))
-                            {
-                                result = lookup(secondValue) - firstNumber;
-                                values.Push(result.ToString());
-                            }
+                        result = secondNumber - firstNumber;
+                        values.Push(result);
 
-                            else
-                            {
-                                result = lookup(secondValue) + lookup(firstValue);
-                                values.Push(result.ToString());
-                            }
-                        }
+                        operators.Pop();
                     }
-
+                    // alway pop here
                     operators.Pop();
-
-                    if (Regex.IsMatch(token, @"\*"))
+                    // check the operator stack, make sure it isn't empty
+                    if (operators.Count > 0)
                     {
-                        String firstValue = values.Pop();
-                        String secondValue = values.Pop();
-                        double firstNumber;
-                        double secondNumber;
-                        if (double.TryParse(firstValue, result: out firstNumber))
+                        if (Regex.IsMatch(operators.Peek(), @"\*"))
                         {
-                            if (double.TryParse(secondValue, result: out secondNumber))
-                            {
-                                result = firstNumber * secondNumber;
-                                values.Push(result.ToString());
-                            }
+                            double firstNumber = values.Pop();
+                            double secondNumber = values.Pop();
 
-                            else
-                            {
-                                result = firstNumber * lookup(secondValue);
-                                values.Push(result.ToString());
-                            }
+                            result = firstNumber * secondNumber;
+                            values.Push(result);
+
+                            operators.Pop();
                         }
-                        else
+
+                        else if (Regex.IsMatch(operators.Peek(), @"\/"))
                         {
-                            if (double.TryParse(secondValue, result: out secondNumber))
-                            {
-                                result = lookup(firstValue) * secondNumber;
-                                values.Push(result.ToString());
-                            }
+                            double firstNumber = values.Pop();
+                            double secondNumber = values.Pop();
 
-                            else
+                            if(firstNumber <= 1e-8)
                             {
-                                result = lookup(firstValue) * lookup(secondValue);
-                                values.Push(result.ToString());
+                                throw new FormulaEvaluationException(message: "don't divide zero!");
                             }
+                            result = secondNumber / firstNumber;
+                            values.Push(result);
+
+                            operators.Pop();
+
                         }
-                    }
-
-                    else if (Regex.IsMatch(token, @"\/"))
-                    {
-                        String firstValue = values.Pop();
-                        String secondValue = values.Pop();
-                        double firstNumber;
-                        double secondNumber;
-                        if (double.TryParse(firstValue, result: out firstNumber))
-                        {
-                            if (double.TryParse(secondValue, result: out secondNumber))
-                            {
-                                result = secondNumber / firstNumber;
-                                values.Push(result.ToString());
-                            }
-
-                            else
-                            {
-                                result = lookup(secondValue) / firstNumber;
-                                values.Push(result.ToString());
-                            }
-                        }
-                        else
-                        {
-                            if (double.TryParse(secondValue, result: out secondNumber))
-                            {
-                                result = lookup(secondValue) / firstNumber;
-                                values.Push(result.ToString());
-                            }
-
-                            else
-                            {
-                                result = lookup(secondValue) / lookup(firstValue);
-                                values.Push(result.ToString());
-                            }
-                        }
+ 
                     }
                 }
 
-                else
-                {
-                    throw new FormulaEvaluationException(message: "something wrong");
-                }
             }
 
+            // push the result
             if (operators.Count == 0)
             {
-                double myResult;
-                if (double.TryParse(values.Pop(), result: out myResult))
-                {
-                    return myResult;
-                }
-
-                else
-                {
-                    throw new FormulaEvaluationException(message: "Wrong output");
-                }
+                return values.Pop();
             }
 
+            // apply the last opeartor and values, then push the result
             else
             {
                 if (Regex.IsMatch(operators.Peek(), @"\+"))
                 {
-                    String firstValue = values.Pop();
-                    String secondValue = values.Pop();
-                    double firstNumber;
-                    double secondNumber;
-                    if (double.TryParse(firstValue, result: out firstNumber))
-                    {
-                        if (double.TryParse(secondValue, result: out secondNumber))
-                        {
-                            result = firstNumber + secondNumber;
-                            values.Push(result.ToString());
-                        }
+                    double firstNumber = values.Pop();
+                    double secondNumber = values.Pop();
 
-                        else
-                        {
-                            result = firstNumber + lookup(secondValue);
-                            values.Push(result.ToString());
-                        }
-                    }
-                    else
-                    {
-                        if (double.TryParse(secondValue, result: out secondNumber))
-                        {
-                            result = lookup(firstValue) + secondNumber;
-                            values.Push(result.ToString());
-                        }
-
-                        else
-                        {
-                            result = lookup(firstValue) + lookup(secondValue);
-                            values.Push(result.ToString());
-                        }
-                    }
+                    result = firstNumber + secondNumber;
+                    values.Push(result);
                 }
 
                 else
                 {
-                    String firstValue = values.Pop();
-                    String secondValue = values.Pop();
-                    double firstNumber;
-                    double secondNumber;
-                    if (double.TryParse(firstValue, result: out firstNumber))
-                    {
-                        if (double.TryParse(secondValue, result: out secondNumber))
-                        {
-                            result = secondNumber - firstNumber;
-                            values.Push(result.ToString());
-                        }
+                    double firstNumber = values.Pop();
+                    double secondNumber = values.Pop();
 
-                        else
-                        {
-                            result = lookup(secondValue) - firstNumber;
-                            values.Push(result.ToString());
-                        }
-                    }
-                    else
-                    {
-                        if (double.TryParse(secondValue, result: out secondNumber))
-                        {
-                            result = lookup(secondValue) - firstNumber;
-                            values.Push(result.ToString());
-                        }
-
-                        else
-                        {
-                            result = lookup(secondValue) + lookup(firstValue);
-                            values.Push(result.ToString());
-                        }
-                    }
+                    result = secondNumber - firstNumber;
+                    values.Push(result);
                 }
 
-                double myResult;
-                if (double.TryParse(values.Pop(), result: out myResult))
-                {
-                    return myResult;
-                }
+                return values.Pop();
 
-                else
-                {
-                    throw new FormulaEvaluationException(message: "Wrong output");
-                }
             }
         }
 
-
-        private bool isvarPattern(String token) => Regex.IsMatch(token, @"[a-zA-Z][0-9a-zA-Z]*");
+        /**
+         * For those four bool method, checking the token type
+         * */
+        private bool isvarPattern(String token) => (Regex.IsMatch(token, @"^\d$") || Regex.IsMatch(token, @"[a-zA-Z][0-9a-zA-Z]*")
+            || double.TryParse(token, out double number));
         private bool islpPattern(String token) => Regex.IsMatch(token, @"\(");
         private bool isrpPattern(String token) => Regex.IsMatch(token, @"\)");
         private bool isopPattern(String token) => Regex.IsMatch(token, @"[\+\-*/]");
-    
+
+        /// <summary>
+        /// this method is use to determain wheather the token and the formula is legal
+        /// There can be no invalid tokens.
+        /// There must be at least one token.
+        /// When reading tokens from left to right, at no point should the
+        /// number of closing parentheses seen so far be greater than the number of opening parentheses seen so far.
+        /// The total number of opening parentheses must equal the total number of closing parentheses.
+        /// The first token of a formula must be a number, a variable, or an opening parenthesis.
+        /// The last token of a formula must be a number, a variable, or a closing parenthesis.
+        /// Any token that immediately follows an opening parenthesis or an operator must be either 
+        /// a number, a variable, or an opening parenthesis.
+        /// Any token that immediately follows a number, a variable, or a closing parenthesis must be
+        /// either an operator or a closing parenthesis.
+        /// </summary>
+        /// <param name="count"></param>
+        /// <param name="last"></param>
+        /// <param name="pre"></param>
+        /// <param name="tokens"></param>
+        /// <param name="over"></param>
         private void isLegal (int count, int last, int pre, int[] tokens, bool over)
         {
             if (count == 1)
@@ -565,25 +441,25 @@ namespace Formulas
                     {throw new FormulaFormatException(message: "The first token of a formula must be a number, a variable, or an opening parenthesis");}
             }
 
-            if (tokens[4] < tokens[5])
+            if (tokens[3] < tokens[4])
                 {throw new FormulaFormatException(message: "closing parentheses seen so far be greater than the number of opening parentheses seen so far");}
 
             if (over)
             {
-                if (last == 3 || last == 4)
+                if (tokens[3] != tokens[4] || last == 3 || last == 4 || (tokens[0]+ tokens[1]+ tokens[2]+ tokens[3]+ tokens[4] < 1))
                     {throw new FormulaFormatException(message: "No avaliable variables");}
             }
 
-            if (last == 3 || last == 4)
+            if (pre == 3 || pre == 4)
             {
-                if (!(pre == 1 || pre == 2 || pre == 4))
+                if (last == 3 || last == 5)
                     {throw new FormulaFormatException(message: "operator or  parenthesis is illegal");}
             }
 
-            if (last == 1 || last == 2 || last == 5)
+            if (pre == 1 || pre == 2 || pre == 5)
             {
-                if (!(pre == 3 || pre == 5))
-                    {throw new FormulaFormatException(message: "operator or  parenthesis is illegal");}
+                if (last == 1 || last == 2 || last == 4)
+                    {throw new FormulaFormatException(message:"operator or  parenthesis is illegal");}
             }
         }
         /// <summary>
