@@ -1,7 +1,10 @@
 ﻿// Skeleton implementation written by Joe Zachary for CS 3500, January 2018.
+// the rest of them written by Yuntong Lu
+// Febuary 1, 2018
 
-using System;
 using System.Collections.Generic;
+
+
 
 namespace Dependencies
 {
@@ -48,11 +51,21 @@ namespace Dependencies
     /// </summary>
     public class DependencyGraph
     {
+        // use two dictionary to hold the dependencies
+        // each dependency might contains more than one dependent or dependee
+        // such, I use Hashset
+        private Dictionary<string, HashSet<string>> dependent;
+        private Dictionary<string, HashSet<string>> dependee;
+        // trecking the size of the graph
+        private int count;
         /// <summary>
         /// Creates a DependencyGraph containing no dependencies.
         /// </summary>
         public DependencyGraph()
         {
+            dependent = new Dictionary<string, HashSet<string>>();
+            dependee = new Dictionary<string, HashSet<string>>();
+            count = 0;
         }
 
         /// <summary>
@@ -60,7 +73,7 @@ namespace Dependencies
         /// </summary>
         public int Size
         {
-            get { return 0; }
+            get { return count; }
         }
 
         /// <summary>
@@ -68,7 +81,11 @@ namespace Dependencies
         /// </summary>
         public bool HasDependents(string s)
         {
-            return false;
+            // if dependent dictionary contains s, retun ture
+            if (dependent.ContainsKey(s) && dependent[s].Count > 0)
+                return true;
+            else
+                return false;
         }
 
         /// <summary>
@@ -76,7 +93,11 @@ namespace Dependencies
         /// </summary>
         public bool HasDependees(string s)
         {
-            return false;
+            // if dependee dictionary contains s, retun ture
+            if (dependee.ContainsKey(s) && dependee[s].Count > 0)
+                return true;
+            else
+                return false;
         }
 
         /// <summary>
@@ -84,7 +105,11 @@ namespace Dependencies
         /// </summary>
         public IEnumerable<string> GetDependents(string s)
         {
-            return null;
+            // if no s are stored in the dependent, return empty
+            if (!dependent.ContainsKey(s))
+                return new HashSet<string>();
+
+            return dependent[s];
         }
 
         /// <summary>
@@ -92,7 +117,12 @@ namespace Dependencies
         /// </summary>
         public IEnumerable<string> GetDependees(string s)
         {
-            return null;
+            // if no s are stored in the dependee, return empty
+            if (!dependee.ContainsKey(s))
+                return new HashSet<string>();
+
+            return dependee[s];
+ 
         }
 
         /// <summary>
@@ -102,6 +132,76 @@ namespace Dependencies
         /// </summary>
         public void AddDependency(string s, string t)
         {
+            // check if s is already stored in the dictionary
+            if (dependent.ContainsKey(s))
+            {
+                // check if t is already stored
+                if (dependent[s].Contains(t))
+                {
+                    return;
+                }
+
+                // add t if t isn't stored in the dictionary
+                else
+                {
+                    dependent[s].Add(t);
+                    count++;
+                    
+                    // store the dependee ditionary for value t
+                    // then check every statement as I checked for dependent dictionary
+                    if (dependee.ContainsKey(t))
+                    {
+                        if (dependee[t].Contains(s))
+                            {
+                            return;
+                            }
+                        else
+                            {
+                            dependee[t].Add(s);
+                            }
+                    }
+
+                    // if t isn't stored in the dependee dictionary
+                    else
+                    {
+                        // create a hashset for it
+                         HashSet<string> mySet = new HashSet<string>();
+                         dependee.Add(t, mySet);
+                         dependee[t].Add(s);
+                    }
+                }
+            }
+
+            // if s isn't stored the dependent dictionary 
+            else
+            {
+                // create a new hashset for it
+                HashSet<string> mySet = new HashSet<string>();
+                dependent.Add(s, mySet);
+                dependent[s].Add(t);
+                count++;
+
+                // save dependee, same step with the previous
+                if (dependee.ContainsKey(t))
+                {
+                    if (dependee[t].Contains(s))
+                    {
+                    return;
+                    }
+                    else
+                    {
+                    dependee[t].Add(s);
+                    }
+                }
+
+                else
+                {
+                    HashSet<string> mySetee = new HashSet<string>();
+                    dependee.Add(t, mySetee);
+                    dependee[t].Add(s);
+                }
+            }
+
         }
 
         /// <summary>
@@ -111,6 +211,29 @@ namespace Dependencies
         /// </summary>
         public void RemoveDependency(string s, string t)
         {
+            // check if s is stored in the dictionary,
+            // if not, do nothing
+            if (dependent.ContainsKey(s) && dependee.ContainsKey(t))
+            {
+                // check if t is stored in the dictionary
+                if (dependent[s].Contains(t) && dependee[t].Contains(s))
+                {
+                    // remove the value and update the count
+                    dependent[s].Remove(t);
+                    dependee[t].Remove(s);
+
+                    count--;
+                }   
+                else
+                    return;
+                    
+            }
+            else
+            {
+                return;
+            }
+              
+                        
         }
 
         /// <summary>
@@ -120,6 +243,35 @@ namespace Dependencies
         /// </summary>
         public void ReplaceDependents(string s, IEnumerable<string> newDependents)
         {
+            // check if the s is the in the dictionary
+            // if not, just add them
+            if (dependent.ContainsKey(s))
+            {
+                // go through each element in the dependent dictionary
+                // match thme within the dependee dictrionary,
+                // then remove the matched value from dependee dictionary first
+                foreach (string token in dependent[s])
+                {
+                    dependee[token].Remove(s);
+                    count--;
+                }
+
+                // remove the value from the dependent dictionary
+                dependent[s].Clear();
+
+                // add the new values to the dictionary
+                foreach (string token in newDependents)
+                {
+                    AddDependency(s, token);
+                }
+            }
+
+            else
+                foreach (string token in newDependents)
+                {
+                    AddDependency(s, token);
+                }
+
         }
 
         /// <summary>
@@ -129,6 +281,30 @@ namespace Dependencies
         /// </summary>
         public void ReplaceDependees(string t, IEnumerable<string> newDependees)
         {
+            // all the following statemnet share the same reason with the 
+            // previous method
+            if (dependee.ContainsKey(t))
+            {
+
+                foreach (string token in dependee[t])
+                {
+                    dependent[token].Remove(t);
+                    count--;
+                }
+
+                dependee[t].Clear();
+
+                foreach (string token in newDependees)
+                {
+                    AddDependency(token, t);
+                }
+            }
+
+            else
+                foreach (string token in newDependees)
+                {
+                    AddDependency(token, t);
+                }
         }
     }
 }
