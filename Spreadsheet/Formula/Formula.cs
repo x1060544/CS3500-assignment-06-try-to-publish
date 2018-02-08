@@ -1,6 +1,6 @@
 ﻿// Skeleton written by Joe Zachary for CS 3500, January 2017
 
-// The rest written by Yuntong Lu (u1060544), January 25 2017
+// The rest written by Yuntong Lu (u1060544), February 8 2018
 
 using System;
 using System.Collections.Generic;
@@ -15,7 +15,7 @@ namespace Formulas
     /// the four binary operator symbols +, -, *, and /.  (The unary operators + and -
     /// are not allowed.)
     /// </summary>
-    public class Formula
+    public struct Formula
     {
 
         private String _formula;
@@ -39,7 +39,104 @@ namespace Formulas
         /// If the formula is syntacticaly invalid, throws a FormulaFormatException with an 
         /// explanatory Message.
         /// </summary>
-        public Formula(String formula)
+        public Formula(string formula)
+        {
+            if (formula == null)
+                throw new ArgumentNullException();
+  
+            _formula = formula;
+            // some references track the format
+            
+            checkIfLegal(false, null, null);
+
+        }
+
+        /// <summary>
+        /// This constructor will take in two delegates
+        /// it will change the input formual to the defined way
+        /// after that, the validator will check the formula
+        /// in those process, all the part should follow the rules
+        /// otherwise, the formula exception will be throwed
+        /// 
+        /// </summary>
+        /// <param name="formula"></param>
+        /// <param name="N"></param>
+        /// <param name="V"></param>
+        public Formula (string formula, Normalizer N, Validator V)
+        {
+            // is the input is null
+            if (formula == null)
+                throw new ArgumentNullException();
+
+            // check if the peremters are legal
+            _formula = formula;
+            checkIfLegal(false, N, null);
+            checkIfLegal(true, N, V);
+
+            // rebuild the formula to the expected way
+            string newFormula = "";
+            foreach (string token in GetTokens(_formula))
+            {
+                double digit;
+                bool isDigit = double.TryParse(token, out digit);
+
+                // only works on the letters
+                if (!isDigit && isvarPattern(token))
+                    newFormula = newFormula + N(token);
+                else
+                    newFormula = newFormula + token;
+            }
+
+            // redefine the formula
+            _formula = newFormula;
+        }
+
+        /// <summary>
+        /// get the new formula form
+        /// </summary>
+        /// <returns></returns>
+        public override string ToString()
+        {
+            return _formula;
+        }
+
+        /// <summary>
+        /// get the varibles in the new format 
+        /// </summary>
+        /// <returns></returns>
+        public ISet<string> GetVariables()
+        {
+            HashSet<string> variables = new HashSet<string>();
+
+            if (_formula == null)
+                return variables;
+
+            // only the letter in the formula will be returned
+            foreach (string token in GetTokens(_formula))
+            {
+                if (isvarPattern(token) && !variables.Contains(token))
+                {
+                    double digit;
+                    bool isDigit = double.TryParse(token, out digit);
+
+                    if (! isDigit)
+                        variables.Add(token);
+                }
+            }
+
+            return variables;
+        }
+
+
+        /// <summary>
+        /// follow the rule in the PS2, it will determian the formula by tokens
+        /// any token that doesn't match the rule,
+        /// it will report
+        /// </summary>
+        /// <param name="needNormalizer"></param>
+        /// <param name="N"></param>
+        /// <param name="V"></param>
+        private void checkIfLegal (bool needNormalizer, Normalizer N, Validator V)
         {
             // some references track the format
             int count = 0;
@@ -49,18 +146,22 @@ namespace Formulas
             int preToken = 0;
 
             // working throw each tokens, determain the token type
-            foreach (String token in GetTokens(formula))
-                {
+            foreach (string token in GetTokens(_formula))
+            {
 
-                // if the token is variables,
-                // determain if it is the double
-                // update the references values
-                    if (isvarPattern (token))
+                if (needNormalizer == true)
+                {
+                    if (V(N(token)) == false)
+                        throw new FormulaFormatException(message: "validator is fasle");
+                    // if the token is variables,
+                    // determain if it is the double
+                    // update the references values
+                    if (isvarPattern(token) && isvarPattern(N(token)))
                     {
                         double digit;
-                        bool isDigit = double.TryParse (token, out digit);
-                        
-                        if (! isDigit)
+                        bool isDigit = double.TryParse(N(token), out digit);
+
+                        if (!isDigit)
                         {
                             count++;
                             preToken = lastToken;
@@ -79,47 +180,111 @@ namespace Formulas
                         }
 
                     }
-                // for all the rest of the if
-                // once determained the token type
-                // update the reference and check if the fomula is legal
-                    else if (isopPattern (token))
+                    // for all the rest of the if
+                    // once determained the token type
+                    // update the reference and check if the fomula is legal
+                    else if (isopPattern(token))
                     {
                         count++;
                         preToken = lastToken;
                         lastToken = 3;
                         tokenTyp[2]++;
-                        isLegal(count, lastToken, preToken, tokenTyp, false);                        
+                        isLegal(count, lastToken, preToken, tokenTyp, false);
                     }
-                
-                    else if (islpPattern (token))
+
+                    else if (islpPattern(token))
                     {
                         count++;
                         preToken = lastToken;
                         lastToken = 4;
                         tokenTyp[3]++;
-                        isLegal(count, lastToken, preToken, tokenTyp, false); 
+                        isLegal(count, lastToken, preToken, tokenTyp, false);
                     }
 
-                    else if (isrpPattern (token))
+                    else if (isrpPattern(token))
                     {
                         count++;
                         preToken = lastToken;
                         lastToken = 5;
                         tokenTyp[4]++;
-                        isLegal(count, lastToken, preToken, tokenTyp, false); 
+                        isLegal(count, lastToken, preToken, tokenTyp, false);
                     }
-                // if the token is none type, throw exception
+                    // if the token is none type, throw exception
                     else
                     {
-                        throw new FormulaFormatException (message: token + "The symboal is undefinded");
-                    }                
+                        throw new FormulaFormatException(message: N(token) + "The symboal is undefinded");
+                    }
                 }
+
+                else
+                {
+                    // if the token is variables,
+                    // determain if it is the double
+                    // update the references values
+                    if (isvarPattern(token))
+                    {
+                        double digit;
+                        bool isDigit = double.TryParse(token, out digit);
+
+                        if (!isDigit)
+                        {
+                            count++;
+                            preToken = lastToken;
+                            lastToken = 1;
+                            tokenTyp[0]++;
+                            isLegal(count, lastToken, preToken, tokenTyp, false);
+                        }
+
+                        else
+                        {
+                            count++;
+                            preToken = lastToken;
+                            lastToken = 2;
+                            tokenTyp[1]++;
+                            isLegal(count, lastToken, preToken, tokenTyp, false);
+                        }
+
+                    }
+                    // for all the rest of the if
+                    // once determained the token type
+                    // update the reference and check if the fomula is legal
+                    else if (isopPattern(token))
+                    {
+                        count++;
+                        preToken = lastToken;
+                        lastToken = 3;
+                        tokenTyp[2]++;
+                        isLegal(count, lastToken, preToken, tokenTyp, false);
+                    }
+
+                    else if (islpPattern(token))
+                    {
+                        count++;
+                        preToken = lastToken;
+                        lastToken = 4;
+                        tokenTyp[3]++;
+                        isLegal(count, lastToken, preToken, tokenTyp, false);
+                    }
+
+                    else if (isrpPattern(token))
+                    {
+                        count++;
+                        preToken = lastToken;
+                        lastToken = 5;
+                        tokenTyp[4]++;
+                        isLegal(count, lastToken, preToken, tokenTyp, false);
+                    }
+                    // if the token is none type, throw exception
+                    else
+                    {
+                        throw new FormulaFormatException(message: token + "The symboal is undefinded");
+                    }
+                }
+            }
 
             // check if the formula is legal after all the individual tokens are legal 
             isLegal(count, lastToken, preToken, tokenTyp, true);
 
-            // get the formula
-            _formula = formula;
         }
         /// <summary>
         /// Evaluates this Formula, using the Lookup delegate to determine the values of variables.  (The
@@ -132,13 +297,16 @@ namespace Formulas
         /// </summary>
         public double Evaluate(Lookup lookup)
         {
+            if (_formula == null)
+                return 0;
+
             // use two stacks to treck the variables and operators
             Stack<string> operators = new Stack<string>();
             Stack<double> values = new Stack<double>();
             double result = 0;
 
             // go through each token and determain the token type
-            foreach (String token in GetTokens(_formula))
+            foreach (string token in GetTokens(_formula))
             {
                 // if the token is variable, check if the token is double
                 // if it is the double, avoid to use loopup delegate
@@ -409,11 +577,11 @@ namespace Formulas
         /**
          * For those four bool method, checking the token type
          * */
-        private bool isvarPattern(String token) => (Regex.IsMatch(token, @"^\d$") || Regex.IsMatch(token, @"[a-zA-Z][0-9a-zA-Z]*")
+        private bool isvarPattern(string token) => (Regex.IsMatch(token, @"^\d$") || Regex.IsMatch(token, @"[a-zA-Z][0-9a-zA-Z]*")
             || double.TryParse(token, out double number));
-        private bool islpPattern(String token) => Regex.IsMatch(token, @"\(");
-        private bool isrpPattern(String token) => Regex.IsMatch(token, @"\)");
-        private bool isopPattern(String token) => Regex.IsMatch(token, @"[\+\-*/]");
+        private bool islpPattern(string token) => Regex.IsMatch(token, @"\(");
+        private bool isrpPattern(string token) => Regex.IsMatch(token, @"\)");
+        private bool isopPattern(string token) => Regex.IsMatch(token, @"[\+\-*/]");
 
         /// <summary>
         /// this method is use to determain wheather the token and the formula is legal
@@ -460,7 +628,7 @@ namespace Formulas
             if (pre == 1 || pre == 2 || pre == 5)
             {
                 if (last == 1 || last == 2 || last == 4)
-                    {throw new FormulaFormatException(message:"operator or  parenthesis is illegal");}
+                    {throw new FormulaFormatException(message:"operator or  parenthesis is illegal" + pre + last);}
             }
         }
         /// <summary>
@@ -515,6 +683,10 @@ namespace Formulas
     /// don't is up to the implementation of the method.
     /// </summary>
     public delegate double Lookup(string var);
+
+    public delegate string Normalizer(string s);
+
+    public delegate bool Validator(string s);
 
     /// <summary>
     /// Used to report that a Lookup delegate is unable to determine the value
