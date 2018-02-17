@@ -188,6 +188,7 @@ namespace SS
         /// </summary>
         protected IEnumerable<String> GetCellsToRecalculate(ISet<String> names)
         {
+
             LinkedList<String> changed = new LinkedList<String>();
             HashSet<String> visited = new HashSet<String>();
             foreach (String name in names)
@@ -195,9 +196,12 @@ namespace SS
                 if (!visited.Contains(name))
                 {
                     Visit(name, name, visited, changed);
+                    
                 }
             }
+
             return changed;
+            
         }
 
         /// <summary>
@@ -209,14 +213,19 @@ namespace SS
             return GetCellsToRecalculate(new HashSet<String>() { name });
         }
 
+        
+
         /// <summary>
         /// A helper for the GetCellsToRecalculate method.
         /// </summary>
         private void Visit(String start, String name, ISet<String> visited, LinkedList<String> changed)
         {
             visited.Add(name);
+
+
             foreach (String n in GetDirectDependents(name))
             {
+                    
                 if (n.Equals(start))
                 {
                     throw new CircularException();
@@ -224,9 +233,12 @@ namespace SS
                 else if (!visited.Contains(n))
                 {
                     Visit(start, n, visited, changed);
+                    
                 }
             }
+            
             changed.AddFirst(name);
+            
         }
     }
 }
