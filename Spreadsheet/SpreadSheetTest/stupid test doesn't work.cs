@@ -12,7 +12,7 @@
 /// The formula class doesn't working, it just frozen
 /// nothing worked in the formula class
 /// I deleted the formula class, but it still shows the calss is there and frozen
-/// I changed the computer, it still doesn't working,  
+/// I changed the computer, it still doesn't working 
 /// And I run out of time
 /// I hate it
 /// oh on  

@@ -582,7 +582,7 @@ namespace SS
 
             }
 
-            // if the content is string
+            // if the content is string, go here
             else
             {
                 return SetCellContents(name, content);
